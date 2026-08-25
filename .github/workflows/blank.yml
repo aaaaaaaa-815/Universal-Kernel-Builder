@@ -102,11 +102,10 @@ jobs:
         BUILD_TARGET_NAME="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
         FULL_TARGET="//${BUILD_PATH}:${BUILD_TARGET_NAME}"
         
-        tools/bazel run ${CONFIG_FLAGS} "${FULL_TARGET}" --dist_dir=out
-
+        tools/bazel run ${CONFIG_FLAGS} "${FULL_TARGET}" -- --destdir=out/dist
     - name: Package Dist Artifacts
       run: |
-        cd workspace/out
+        cd workspace/out/dist
         zip -0 -r ../kernel-artifact.zip *
 
     - name: Generate Release Tag & Title
