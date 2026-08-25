@@ -1,0 +1,142 @@
+name: Generic Android Kernel CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      MANIFEST_URL:
+        description: 'Manifest Repository URL'
+        required: true
+        default: 'https://android.googlesource.com/kernel/manifest'
+      MANIFEST_BRANCH:
+        description: 'Manifest Branch'
+        required: true
+        default: 'common-android-mainline'
+      BUILD_CONFIG:
+        description: 'Bazel Config Flags (e.g. config=fast nosandbox_debug)'
+        required: false
+        default: ''
+      BUILD_PATH:
+        description: 'Bazel Target Path/Package (e.g. common)'
+        required: true
+        default: 'common'
+      BUILD_TARGET:
+        description: 'Bazel Target Name (e.g. kernel_aarch64_dist)'
+        required: true
+        default: 'kernel_aarch64_dist'
+      PUBLISH_TYPE:
+        description: 'Choose Artifact Publishing Type'
+        required: true
+        type: choice
+        default: 'release'
+        options:
+          - 'release'
+          - 'artifact'
+          - 'both'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Maximize Build Space
+      uses: easimon/maximize-build-space@v10
+      with:
+        root-reserve-mb: 8192
+        swap-size-mb: 4096
+        remove-dotnet: 'true'
+        remove-android: 'true'
+        remove-haskell: 'true'
+        remove-codeql: 'true'
+        remove-docker-images: 'true'
+
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install Dependencies & Setup Repo
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y flex bison build-essential libssl-dev libelf-dev \
+          git-core gnupg ccache zip curl zlib1g-dev python3 python3-pip libbz2-dev
+        
+        mkdir -p ~/.bin
+        curl https://storage.googleapis.com/git-repo-downloads/repo > ~/.bin/repo
+        chmod a+rx ~/.bin/repo
+        echo "$HOME/.bin" >> $GITHUB_PATH
+
+    - name: Sync Source Code & Get Commit SHA
+      id: sync
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+        
+        mkdir workspace
+        cd workspace
+        
+        BRANCH="${{ github.event.inputs.MANIFEST_BRANCH || 'common-android-mainline' }}"
+        
+        repo init -u ${{ github.event.inputs.MANIFEST_URL || 'https://android.googlesource.com/kernel/manifest' }} \
+                  -b "${BRANCH}" \
+                  --depth=1
+        
+        repo sync -c --no-tags --no-clone-bundle -j$(nproc)
+        
+        COMMIT_SHA=$(git -C common rev-parse --short=8 HEAD)
+        echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+        echo "BRANCH=${BRANCH}" >> $GITHUB_OUTPUT
+        
+        rm -rf .repo
+
+    - name: Build Kernel with Kleaf
+      run: |
+        cd workspace
+        
+        CONFIG_FLAGS=""
+        for item in ${{ github.event.inputs.BUILD_CONFIG }}; do
+          CONFIG_FLAGS="${CONFIG_FLAGS} --${item}"
+        done
+        
+        BUILD_PATH="${{ github.event.inputs.BUILD_PATH || 'common' }}"
+        BUILD_TARGET_NAME="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
+        FULL_TARGET="//${BUILD_PATH}:${BUILD_TARGET_NAME}"
+        
+        tools/bazel run ${CONFIG_FLAGS} "${FULL_TARGET}" --dist_dir=out
+
+    - name: Package Dist Artifacts
+      run: |
+        cd workspace/out
+        zip -0 -r ../kernel-artifact.zip *
+
+    - name: Generate Release Tag & Title
+      id: tag
+      run: |
+        DATE_STR=$(date +'%Y.%m.%d')
+        SHA="${{ steps.sync.outputs.COMMIT_SHA }}"
+        BRANCH="${{ steps.sync.outputs.BRANCH }}"
+        TARGET="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
+        TAG_NAME="${DATE_STR}-${BRANCH}-${TARGET}-${SHA}"
+        echo "RELEASE_TAG=${TAG_NAME}" >> $GITHUB_OUTPUT
+        echo "RELEASE_NAME=Kernel Build ${TAG_NAME}" >> $GITHUB_OUTPUT
+
+    - name: Upload Actions Artifact (Store Mode)
+      if: ${{ github.event.inputs.PUBLISH_TYPE == 'artifact' || github.event.inputs.PUBLISH_TYPE == 'both' }}
+      uses: actions/upload-artifact@v4
+      with:
+        name: kernel-artifact-${{ steps.tag.outputs.RELEASE_TAG }}
+        path: workspace/kernel-artifact.zip
+        compression-level: 0
+
+    - name: Create GitHub Release
+      if: ${{ github.event.inputs.PUBLISH_TYPE == 'release' || github.event.inputs.PUBLISH_TYPE == 'both' }}
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.tag.outputs.RELEASE_TAG }}
+        name: ${{ steps.tag.outputs.RELEASE_NAME }}
+        body: |
+          - **Manifest Branch**: `${{ steps.sync.outputs.BRANCH }}`
+          - **Build Target**: `${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}`
+          - **Kernel Commit**: `${{ steps.sync.outputs.COMMIT_SHA }}`
+        files: |
+          workspace/kernel-artifact.zip
