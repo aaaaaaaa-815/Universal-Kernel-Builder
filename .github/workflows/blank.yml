@@ -106,7 +106,7 @@ jobs:
     - name: Package Dist Artifacts
       run: |
         cd workspace/out/dist
-        zip -0 -r ../kernel-artifact.zip *
+        zip -0 -r ../../kernel-artifact.zip *
 
     - name: Generate Release Tag & Title
       id: tag
