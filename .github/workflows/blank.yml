@@ -124,7 +124,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: kernel-artifact-${{ steps.tag.outputs.RELEASE_TAG }}
-        path: workspace/kernel-artifact.zip
+        path: workspace/out/dist
         compression-level: 0
 
     - name: Create GitHub Release
