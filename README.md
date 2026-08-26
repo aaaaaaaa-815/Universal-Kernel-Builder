@@ -10,7 +10,7 @@ When triggering the workflow manually via **`workflow_dispatch`**, you can confi
 
 * **`MANIFEST_URL`**: The Git repository URL of the kernel manifest (Default: `https://android.googlesource.com/kernel/manifest`).
 * **`MANIFEST_BRANCH`**: The target manifest branch to sync (Default: `common-android-mainline`).
-* **`BUILD_CONFIG`**: Additional Bazel configuration flags passed to the build command. Enter flags without the `--` prefix, separated by spaces (e.g., `config=raviole config=fast` will automatically expand to `--config=raviole --config=fast`).
+* **`BUILD_CONFIG`**: Additional Bazel configuration flags passed to the build command. Enter flags without the `--` prefix, separated by spaces (e.g., `nosandbox_debug config=fast` will automatically expand to `--nosandbox_debug --config=fast`).
 * **`BUILD_PATH`**: The Bazel package or path relative to the workspace (Default: `common`).
 * **`BUILD_TARGET`**: The target rule name to execute (Default: `kernel_aarch64_dist`). Together with `BUILD_PATH`, it constructs the target `//<BUILD_PATH>:<BUILD_TARGET>` (e.g., `//common:kernel_aarch64_dist`).
 * **`PUBLISH_TYPE`**: Selection strategy for publishing output build artifacts:
