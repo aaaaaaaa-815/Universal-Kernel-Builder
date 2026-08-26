@@ -86,23 +86,31 @@ jobs:
         COMMIT_SHA=$(git -C common rev-parse --short=8 HEAD)
         echo "COMMIT_SHA=${COMMIT_SHA}" >> $GITHUB_OUTPUT
         echo "BRANCH=${BRANCH}" >> $GITHUB_OUTPUT
-        
-        rm -rf .repo
 
     - name: Build Kernel with Kleaf
       run: |
         cd workspace
         
         CONFIG_FLAGS=""
-        for item in ${{ github.event.inputs.BUILD_CONFIG }}; do
-          CONFIG_FLAGS="${CONFIG_FLAGS} --${item}"
-        done
+        CLEAN_CONFIGS=$(echo "${{ github.event.inputs.BUILD_CONFIG }}" | tr '\r\n' ' ')
+          
+          for item in ${CLEAN_CONFIGS}; do
+            CONFIG_FLAGS="${CONFIG_FLAGS} --${item}"
+          done
         
         BUILD_PATH="${{ github.event.inputs.BUILD_PATH || 'common' }}"
         BUILD_TARGET_NAME="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
         FULL_TARGET="//${BUILD_PATH}:${BUILD_TARGET_NAME}"
         
-        tools/bazel run ${CONFIG_FLAGS} "${FULL_TARGET}" -- --destdir=out/dist
+        BUILD_CMD="tools/bazel run${CONFIG_FLAGS} \"${FULL_TARGET}\" -- --dist_dir=out"
+
+          echo "=================================================="
+          echo "Executing Bazel Build Command:"
+          echo "${BUILD_CMD}"
+          echo "=================================================="
+
+          # 执行命令
+          eval ${BUILD_CMD}
     - name: Package Dist Artifacts
       run: |
         cd workspace/out/dist
