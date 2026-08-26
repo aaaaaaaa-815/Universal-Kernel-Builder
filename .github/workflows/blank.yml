@@ -92,11 +92,9 @@ jobs:
         cd workspace
         
         CONFIG_FLAGS=""
-        CLEAN_CONFIGS=$(echo "${{ github.event.inputs.BUILD_CONFIG }}" | tr '\r\n' ' ')
-          
-          for item in ${CLEAN_CONFIGS}; do
-            CONFIG_FLAGS="${CONFIG_FLAGS} --${item}"
-          done
+        for item in ${{ github.event.inputs.BUILD_CONFIG }}; do
+          CONFIG_FLAGS="${CONFIG_FLAGS} --${item}"
+        done
         
         BUILD_PATH="${{ github.event.inputs.BUILD_PATH || 'common' }}"
         BUILD_TARGET_NAME="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
