@@ -100,7 +100,7 @@ jobs:
         BUILD_TARGET_NAME="${{ github.event.inputs.BUILD_TARGET || 'kernel_aarch64_dist' }}"
         FULL_TARGET="//${BUILD_PATH}:${BUILD_TARGET_NAME}"
         
-        BUILD_CMD="tools/bazel run${CONFIG_FLAGS} \"${FULL_TARGET}\" -- --dist_dir=out"
+        BUILD_CMD="tools/bazel run${CONFIG_FLAGS} "${FULL_TARGET}" -- --destdir=out/dist"
 
           echo "=================================================="
           echo "Executing Bazel Build Command:"
